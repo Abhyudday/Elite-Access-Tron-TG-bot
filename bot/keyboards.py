@@ -26,6 +26,14 @@ def back_menu_kb() -> InlineKeyboardMarkup:
     ])
 
 
+def deposit_kb() -> InlineKeyboardMarkup:
+    """Deposit screen keyboard with Export Key and Back buttons."""
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="🔑 Export Wallet Key", callback_data="wallet:export_key")],
+        [InlineKeyboardButton(text="⬅️ Back to Menu", callback_data="menu:main")],
+    ])
+
+
 def admin_menu_kb() -> InlineKeyboardMarkup:
     """Admin panel inline keyboard."""
     return InlineKeyboardMarkup(inline_keyboard=[

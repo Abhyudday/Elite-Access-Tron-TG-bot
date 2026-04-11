@@ -7,7 +7,7 @@ from aiogram import Router, F
 from aiogram.types import CallbackQuery
 
 from services.wallet_service import WalletService
-from bot.keyboards import back_menu_kb
+from bot.keyboards import deposit_kb, back_menu_kb
 
 logger = logging.getLogger(__name__)
 router = Router(name="deposit")
@@ -43,6 +43,32 @@ async def cb_deposit(callback: CallbackQuery) -> None:
     )
 
     await callback.message.edit_text(
-        text, parse_mode="HTML", reply_markup=back_menu_kb()
+        text, parse_mode="HTML", reply_markup=deposit_kb()
+    )
+    await callback.answer()
+
+
+@router.callback_query(F.data == "wallet:export_key")
+async def cb_export_key(callback: CallbackQuery) -> None:
+    """Send the user their wallet private key via a separate message."""
+    if not callback.from_user or not _provider:
+        return
+
+    # Only TronGridProvider supports key derivation
+    from blockchain.trongrid_provider import TronGridProvider
+    if not isinstance(_provider, TronGridProvider):
+        await callback.answer("Key export is not available in mock mode.", show_alert=True)
+        return
+
+    priv_key = _provider._derive_private_key(callback.from_user.id)
+    hex_key = priv_key.hex()
+
+    await callback.message.answer(
+        "🔐 <b>Your Wallet Private Key</b>\n\n"
+        f"<tg-spoiler>{hex_key}</tg-spoiler>\n\n"
+        "⚠️ <b>Keep this key secret!</b> Anyone with this key "
+        "can access the funds in your deposit wallet.\n"
+        "Delete this message after saving the key.",
+        parse_mode="HTML",
     )
     await callback.answer()
