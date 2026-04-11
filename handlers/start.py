@@ -20,16 +20,12 @@ router = Router(name="start")
 _pending_referrals: dict[int, str | None] = {}
 
 
-async def _send_welcome(target, user, created: bool, lang: str) -> None:
-    """Send the welcome or welcome-back message."""
+def _welcome_text(user, created: bool, lang: str) -> str:
+    """Build the welcome or welcome-back message text."""
     key = "welcome_new" if created else "welcome_back"
-    text = t(lang, key,
+    return t(lang, key,
              referral_code=user.referral_code,
              balance=f"{user.balance:.4f}")
-    if hasattr(target, "edit_text"):
-        await target.edit_text(text, parse_mode="HTML", reply_markup=main_menu_kb())
-    else:
-        await target.answer(text, parse_mode="HTML", reply_markup=main_menu_kb())
 
 
 @router.message(CommandStart(deep_link=True))
@@ -62,7 +58,11 @@ async def cmd_start_with_ref(message: Message) -> None:
         )
     else:
         lang = user.language or "en"
-        await _send_welcome(message, user, created, lang)
+        await message.answer(
+            _welcome_text(user, False, lang),
+            parse_mode="HTML",
+            reply_markup=main_menu_kb(),
+        )
 
 
 @router.message(CommandStart())
@@ -85,7 +85,11 @@ async def cmd_start(message: Message) -> None:
         )
     else:
         lang = user.language or "en"
-        await _send_welcome(message, user, created, lang)
+        await message.answer(
+            _welcome_text(user, False, lang),
+            parse_mode="HTML",
+            reply_markup=main_menu_kb(),
+        )
 
 
 @router.callback_query(F.data.startswith("lang:"))
@@ -105,10 +109,7 @@ async def cb_language_select(callback: CallbackQuery) -> None:
     if not user:
         return
 
-    key = "welcome_new"
-    text = t(lang, key,
-             referral_code=user.referral_code,
-             balance=f"{user.balance:.4f}")
+    text = _welcome_text(user, True, lang)
     # Edit the language-selection message into the welcome message
     await callback.message.edit_text(
         f"{t(lang, 'language_set')}\n\n{text}",
