@@ -7,9 +7,10 @@ from config import Config
 def get_blockchain_provider() -> BlockchainProvider:
     """Factory: return the configured blockchain provider."""
     if Config.BLOCKCHAIN_PROVIDER == "trongrid":
-        if not Config.TRON_MASTER_KEY:
-            raise ValueError("TRON_MASTER_KEY is required when BLOCKCHAIN_PROVIDER=trongrid")
-        return TronGridProvider(api_key=Config.TRONGRID_API_KEY, master_key=Config.TRON_MASTER_KEY)
+        master_key = Config.TRON_MASTER_KEY or Config.TRONGRID_API_KEY
+        if not master_key:
+            raise ValueError("Either TRON_MASTER_KEY or TRONGRID_API_KEY must be set when BLOCKCHAIN_PROVIDER=trongrid")
+        return TronGridProvider(api_key=Config.TRONGRID_API_KEY, master_key=master_key)
     return MockBlockchainProvider()
 
 
