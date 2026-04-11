@@ -13,7 +13,7 @@ from services.admin_service import AdminService
 from services.user_service import UserService
 from services.deposit_service import DepositService
 from services.referral_service import ReferralService
-from bot.keyboards import admin_menu_kb, commission_action_kb, back_menu_kb
+from bot.keyboards import admin_menu_kb, commission_action_kb, commission_kb, back_menu_kb
 
 logger = logging.getLogger(__name__)
 router = Router(name="admin")
@@ -159,7 +159,7 @@ async def cb_admin_referrals(callback: CallbackQuery) -> None:
     await callback.answer()
 
 
-# ── Pending commissions ──────────────────────────────────────────────
+# ── Pending commissions (payout view) ───────────────────────────────────────
 
 @router.callback_query(F.data == "admin:pending")
 async def cb_admin_pending(callback: CallbackQuery) -> None:
@@ -167,33 +167,51 @@ async def cb_admin_pending(callback: CallbackQuery) -> None:
         await callback.answer("⛔ Unauthorized", show_alert=True)
         return
 
-    commissions = await ReferralService.get_pending_commissions(limit=20)
-    if not commissions:
+    rows = await ReferralService.get_pending_commissions_with_payout(limit=30)
+
+    if not rows:
         await callback.message.edit_text(
-            "⏳ <b>Pending Commissions</b>\n\nAll clear — nothing pending!",
+            "✅ <b>Payouts</b>\n\nAll clear — no pending commissions!",
             parse_mode="HTML",
             reply_markup=admin_menu_kb(),
         )
         await callback.answer()
         return
 
-    lines = ["⏳ <b>Pending Commissions</b>\n"]
-    for c in commissions:
-        lines.append(
-            f"• ID={c.id}  referrer=<code>{c.referrer_telegram_id}</code>  "
-            f"<b>{c.amount:.4f} USDT</b>  tx=<code>{c.deposit_tx_hash[:12]}…</code>"
-        )
-    text = "\n".join(lines)
-
-    # Show pay button for the first pending commission
-    await callback.message.edit_text(
-        text, parse_mode="HTML",
-        reply_markup=commission_action_kb(commissions[0].id),
+    # Summary header
+    total_due = sum(c.amount for c, _, _ in rows)
+    header = (
+        f"💸 <b>Pending Payouts</b> — {len(rows)} item(s)\n"
+        f"Total due: <b>{total_due:.4f} USDT</b>\n\n"
+        "Each payout is listed below ↓"
     )
+    await callback.message.edit_text(
+        header, parse_mode="HTML", reply_markup=admin_menu_kb()
+    )
+
+    # One message per commission so each has its own Mark as Paid button
+    for commission, username, payout_address in rows:
+        uname_display = f"@{username}" if username else f"ID {commission.referrer_telegram_id}"
+        wallet_display = (
+            f"<code>{payout_address}</code>" if payout_address
+            else "⚠️ <i>No payout wallet set</i>"
+        )
+        text = (
+            f"💰 <b>Commission #{commission.id}</b>\n"
+            f"👤 Referrer: {uname_display} (<code>{commission.referrer_telegram_id}</code>)\n"
+            f"💵 Amount: <b>{commission.amount:.4f} USDT</b>\n"
+            f"👛 Send to: {wallet_display}\n"
+            f"📅 Date: {commission.created_at.strftime('%Y-%m-%d %H:%M') if commission.created_at else '—'}\n"
+            f"🔗 TX: <code>{commission.deposit_tx_hash[:16]}…</code>"
+        )
+        await callback.message.answer(
+            text, parse_mode="HTML", reply_markup=commission_kb(commission.id)
+        )
+
     await callback.answer()
 
 
-# ── Mark commission paid ──────────────────────────────────────────────
+# ── Mark commission paid ───────────────────────────────────────────
 
 @router.callback_query(F.data.startswith("admin:pay:"))
 async def cb_admin_pay_commission(callback: CallbackQuery) -> None:
@@ -205,9 +223,12 @@ async def cb_admin_pay_commission(callback: CallbackQuery) -> None:
     success = await ReferralService.mark_commission_paid(commission_id)
 
     if success:
-        await callback.answer("✅ Commission marked as paid and credited!", show_alert=True)
+        # Update this specific message to show paid status
+        await callback.message.edit_reply_markup(reply_markup=None)
+        await callback.message.edit_text(
+            callback.message.text + "\n\n✅ <b>PAID</b>",
+            parse_mode="HTML",
+        )
+        await callback.answer("✅ Marked as paid!", show_alert=False)
     else:
-        await callback.answer("⚠️ Commission not found or already paid.", show_alert=True)
-
-    # Refresh the pending list
-    await cb_admin_pending(callback)
+        await callback.answer("⚠️ Already paid or not found.", show_alert=True)

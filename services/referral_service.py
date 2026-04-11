@@ -110,6 +110,24 @@ class ReferralService:
             return list(result.scalars().all())
 
     @staticmethod
+    async def get_pending_commissions_with_payout(
+        limit: int = 50,
+    ) -> list[tuple[Commission, str | None, str | None]]:
+        """
+        Return list of (Commission, username, payout_address) for pending items.
+        Joined with the User table so the admin has everything needed to pay out.
+        """
+        async with get_session() as session:
+            result = await session.execute(
+                select(Commission, User.username, User.payout_address)
+                .join(User, User.telegram_id == Commission.referrer_telegram_id)
+                .where(Commission.status == "pending")
+                .order_by(Commission.created_at.asc())
+                .limit(limit)
+            )
+            return [(row[0], row[1], row[2]) for row in result.all()]
+
+    @staticmethod
     async def mark_commission_paid(commission_id: int) -> bool:
         async with get_session() as session:
             result = await session.execute(

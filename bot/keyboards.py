@@ -48,6 +48,35 @@ def wallet_menu_kb() -> InlineKeyboardMarkup:
     ])
 
 
+def referral_kb() -> InlineKeyboardMarkup:
+    """Referral screen keyboard with a copy-link shortcut."""
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="📋 Copy Referral Link", callback_data="copy:ref_link")],
+        [InlineKeyboardButton(text="⬅️ Back to Menu", callback_data="menu:main")],
+    ])
+
+
+def deposit_copy_kb() -> InlineKeyboardMarkup:
+    """Deposit screen keyboard with a copy-address shortcut."""
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="📋 Copy Deposit Address", callback_data="copy:dep_addr")],
+        [InlineKeyboardButton(text="⬅️ Back to Menu", callback_data="menu:main")],
+    ])
+
+
+def commission_kb(commission_id: int) -> InlineKeyboardMarkup:
+    """Per-commission keyboard shown in admin payout view."""
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [
+            InlineKeyboardButton(
+                text="✅ Mark as Paid",
+                callback_data=f"admin:pay:{commission_id}",
+            ),
+        ],
+        [InlineKeyboardButton(text="⬅️ Back to Admin", callback_data="admin:pending")],
+    ])
+
+
 def admin_menu_kb() -> InlineKeyboardMarkup:
     """Admin panel inline keyboard."""
     return InlineKeyboardMarkup(inline_keyboard=[
@@ -66,7 +95,7 @@ def admin_menu_kb() -> InlineKeyboardMarkup:
 
 
 def commission_action_kb(commission_id: int) -> InlineKeyboardMarkup:
-    """Mark a single commission as paid."""
+    """Mark a single commission as paid (legacy, kept for compat)."""
     return InlineKeyboardMarkup(inline_keyboard=[
         [
             InlineKeyboardButton(
