@@ -21,7 +21,8 @@ class Config:
     # Blockchain
     BLOCKCHAIN_PROVIDER: str = os.getenv("BLOCKCHAIN_PROVIDER", "mock")
     TRONGRID_API_KEY: str = os.getenv("TRONGRID_API_KEY", "")
-    TRON_MASTER_ADDRESS: str = os.getenv("TRON_MASTER_ADDRESS", "")
+    # Secret master key for deterministic address derivation (keep secret, never change)
+    TRON_MASTER_KEY: str = os.getenv("TRON_MASTER_KEY", "")
 
     # Referral
     REFERRAL_COMMISSION_PCT: float = float(os.getenv("REFERRAL_COMMISSION_PCT", "10"))

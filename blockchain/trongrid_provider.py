@@ -1,16 +1,21 @@
 """
 Real TronGrid/TRC20 USDT blockchain provider.
 
-Uses TronGrid API to:
- - Generate deposit addresses (creates new Tron accounts)
- - Query TRC20 transfer events for a given address
- - Check USDT balance
+Address generation: deterministic HD-style derivation using HMAC-SHA256
+  (master_key + user_id → private key → TRC20 address).
+  - No private keys stored in DB; rederive any time from master key.
+  - Same user always gets the same address.
+
+Deposit detection: TronGrid v1 TRC20 transfer API.
 
 USDT TRC20 contract on mainnet: TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t
 """
 
+import hashlib
+import hmac
 import logging
 import aiohttp
+from tronpy.keys import PrivateKey
 from blockchain.base import BlockchainProvider, DepositInfo
 
 logger = logging.getLogger(__name__)
@@ -22,36 +27,36 @@ TRONGRID_BASE = "https://api.trongrid.io"
 class TronGridProvider(BlockchainProvider):
     """
     Production TronGrid-backed provider.
-    Requires a valid TRONGRID_API_KEY.
+    Requires a valid TRONGRID_API_KEY and TRON_MASTER_KEY.
     """
 
-    def __init__(self, api_key: str) -> None:
+    def __init__(self, api_key: str, master_key: str) -> None:
         self._api_key = api_key
+        self._master_key = master_key.encode() if isinstance(master_key, str) else master_key
         self._headers = {"TRON-PRO-API-KEY": api_key}
+
+    def _derive_private_key(self, user_identifier: int) -> PrivateKey:
+        """
+        Deterministically derive a private key for a user using
+        HMAC-SHA256(master_key, user_id). Same user always produces
+        the same key — no storage needed.
+        """
+        derived = hmac.new(
+            self._master_key,
+            str(user_identifier).encode(),
+            hashlib.sha256,
+        ).digest()
+        return PrivateKey(private_key_bytes=derived)
 
     async def generate_address(self, user_identifier: int) -> str:
         """
-        Generate a new Tron account via TronGrid.
-        In production, you'd typically use an HD wallet derivation
-        from a master seed. This is a simplified version that calls
-        the generateaddress endpoint.
-
-        ⚠ For real production use, implement HD wallet derivation
-        (e.g. using tronpy) and store private keys securely.
+        Derive a unique TRC20 address locally (no API call required).
+        The address is deterministic: same user_id + master_key → same address.
         """
-        async with aiohttp.ClientSession() as session:
-            url = f"{TRONGRID_BASE}/wallet/generateaddress"
-            async with session.get(url, headers=self._headers) as resp:
-                if resp.status != 200:
-                    text = await resp.text()
-                    raise RuntimeError(f"TronGrid generateaddress failed: {resp.status} {text}")
-                data = await resp.json()
-                address = data.get("base58check") or data.get("base58")
-                if not address:
-                    raise RuntimeError(f"Unexpected TronGrid response: {data}")
-                # ⚠ Store private_key securely (data['privateKey']) in production
-                logger.info("TronGrid address generated for user %s: %s", user_identifier, address)
-                return address
+        priv_key = self._derive_private_key(user_identifier)
+        address = priv_key.public_key.to_base58check_address()
+        logger.info("TRC20 address derived for user %s: %s", user_identifier, address)
+        return address
 
     async def get_deposits(self, address: str) -> list[DepositInfo]:
         """
@@ -92,9 +97,17 @@ class TronGridProvider(BlockchainProvider):
         return deposits
 
     async def get_usdt_balance(self, address: str) -> float:
-        """Query on-chain USDT balance via TronGrid."""
-        url = f"{TRONGRID_BASE}/v1/accounts/{address}/transactions/trc20"
-        # Simplified – in production, use the contract balanceOf call
-        # This is a placeholder that sums recent incoming minus outgoing
-        logger.warning("get_usdt_balance not fully implemented for TronGrid; returning 0")
-        return 0.0
+        """Query on-chain USDT balance via TronGrid TRC20 contract."""
+        url = f"{TRONGRID_BASE}/v1/contracts/{USDT_CONTRACT}/balances"
+        params = {"address": address}
+        try:
+            async with aiohttp.ClientSession() as session:
+                async with session.get(url, headers=self._headers, params=params) as resp:
+                    if resp.status != 200:
+                        return 0.0
+                    data = await resp.json()
+                    raw = int(data.get("balance", 0))
+                    return raw / 1_000_000
+        except Exception as e:
+            logger.exception("Error fetching USDT balance for %s: %s", address, e)
+            return 0.0
