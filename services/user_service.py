@@ -105,5 +105,33 @@ class UserService:
     async def count_users() -> int:
         from sqlalchemy import func
         async with get_session() as session:
-            result = await session.execute(select(func.count(User.id)))
+            result = await session.execute(select(func.count(User.telegram_id)))
             return result.scalar_one()
+
+    @staticmethod
+    async def set_payout_address(telegram_id: int, address: str) -> None:
+        """Set the user's TRC20 payout wallet address."""
+        async with get_session() as session:
+            result = await session.execute(
+                select(User).where(User.telegram_id == telegram_id)
+            )
+            user = result.scalar_one_or_none()
+            if not user:
+                raise ValueError(f"User {telegram_id} not found")
+            user.payout_address = address
+            await session.commit()
+            logger.info("Payout address set for %s: %s", telegram_id, address)
+
+    @staticmethod
+    async def set_language(telegram_id: int, lang: str) -> None:
+        """Set the user's preferred language ('en' or 'de')."""
+        async with get_session() as session:
+            result = await session.execute(
+                select(User).where(User.telegram_id == telegram_id)
+            )
+            user = result.scalar_one_or_none()
+            if not user:
+                raise ValueError(f"User {telegram_id} not found")
+            user.language = lang
+            await session.commit()
+            logger.info("Language set for %s: %s", telegram_id, lang)

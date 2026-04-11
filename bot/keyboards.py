@@ -16,6 +16,9 @@ def main_menu_kb() -> InlineKeyboardMarkup:
             InlineKeyboardButton(text="👥 Referral", callback_data="menu:referral"),
             InlineKeyboardButton(text="📋 Transactions", callback_data="menu:transactions"),
         ],
+        [
+            InlineKeyboardButton(text="👛 Wallet", callback_data="menu:wallet"),
+        ],
     ])
 
 
@@ -26,10 +29,20 @@ def back_menu_kb() -> InlineKeyboardMarkup:
     ])
 
 
-def deposit_kb() -> InlineKeyboardMarkup:
-    """Deposit screen keyboard with Export Key and Back buttons."""
+def language_kb() -> InlineKeyboardMarkup:
+    """Language selection keyboard shown on first /start."""
     return InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="🔑 Export Wallet Key", callback_data="wallet:export_key")],
+        [
+            InlineKeyboardButton(text="🇬🇧 English", callback_data="lang:en"),
+            InlineKeyboardButton(text="🇩🇪 Deutsch", callback_data="lang:de"),
+        ],
+    ])
+
+
+def wallet_menu_kb() -> InlineKeyboardMarkup:
+    """Wallet settings keyboard."""
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="� Set Payout Wallet", callback_data="wallet:set_payout")],
         [InlineKeyboardButton(text="⬅️ Back to Menu", callback_data="menu:main")],
     ])
 

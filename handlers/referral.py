@@ -9,6 +9,7 @@ from aiogram.types import CallbackQuery
 from services.user_service import UserService
 from services.referral_service import ReferralService
 from bot.keyboards import back_menu_kb
+from bot.i18n import t
 
 logger = logging.getLogger(__name__)
 router = Router(name="referral")
@@ -29,17 +30,15 @@ async def cb_referral(callback: CallbackQuery) -> None:
     bot_info = await callback.bot.get_me()
     ref_link = f"https://t.me/{bot_info.username}?start={user.referral_code}"
 
+    lang = user.language or "en"
     ref_count = await ReferralService.get_referral_count(user.telegram_id)
     total_earned = await ReferralService.get_total_earnings(user.telegram_id)
 
-    text = (
-        "👥 <b>Referral Program</b>\n\n"
-        f"Your referral link:\n<code>{ref_link}</code>\n\n"
-        f"Referral code: <code>{user.referral_code}</code>\n"
-        f"Invited: <b>{ref_count}</b> users\n"
-        f"Total earned: <b>{total_earned:.4f} USDT</b>\n\n"
-        "Share your link — earn commission on every deposit your referrals make!"
-    )
+    text = t(lang, "referral",
+             ref_link=ref_link,
+             referral_code=user.referral_code,
+             ref_count=ref_count,
+             total_earned=f"{total_earned:.4f}")
 
     await callback.message.edit_text(
         text, parse_mode="HTML", reply_markup=back_menu_kb()

@@ -21,6 +21,8 @@ class User(Base):
     referral_code: Mapped[str] = mapped_column(String(16), unique=True, nullable=False, index=True)
     referred_by: Mapped[int | None] = mapped_column(BigInteger, ForeignKey("users.telegram_id"), nullable=True)
     balance: Mapped[float] = mapped_column(Float, default=0.0, nullable=False)
+    payout_address: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    language: Mapped[str] = mapped_column(String(2), default="en", nullable=False)
     created_at: Mapped[datetime.datetime] = mapped_column(
         DateTime(timezone=True), default=datetime.datetime.utcnow, nullable=False
     )
