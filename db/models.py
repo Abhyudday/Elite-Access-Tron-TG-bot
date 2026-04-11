@@ -4,7 +4,7 @@ SQLAlchemy ORM models for all database tables.
 
 import datetime
 from sqlalchemy import (
-    BigInteger, String, Float, Boolean, DateTime, ForeignKey, Text, Index
+    BigInteger, String, Float, DateTime, ForeignKey, Index
 )
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
@@ -16,8 +16,7 @@ class Base(DeclarativeBase):
 class User(Base):
     __tablename__ = "users"
 
-    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
-    telegram_id: Mapped[int] = mapped_column(BigInteger, unique=True, nullable=False, index=True)
+    telegram_id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
     username: Mapped[str | None] = mapped_column(String(64), nullable=True)
     referral_code: Mapped[str] = mapped_column(String(16), unique=True, nullable=False, index=True)
     referred_by: Mapped[int | None] = mapped_column(BigInteger, ForeignKey("users.telegram_id"), nullable=True)
