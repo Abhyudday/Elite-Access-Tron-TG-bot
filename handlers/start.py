@@ -102,15 +102,15 @@ async def cb_language_select(callback: CallbackQuery) -> None:
     if lang not in ("en", "de"):
         lang = "en"
 
-    await UserService.set_language(callback.from_user.id, lang)
+    is_new = callback.from_user.id in _pending_referrals
     _pending_referrals.pop(callback.from_user.id, None)
+
+    await UserService.set_language(callback.from_user.id, lang)
 
     user = await UserService.get_user(callback.from_user.id)
     if not user:
         return
-
-    text = _welcome_text(user, True, lang)
-    # Edit the language-selection message into the welcome message
+    text = _welcome_text(user, is_new, lang)
     await callback.message.edit_text(
         f"{t(lang, 'language_set')}\n\n{text}",
         parse_mode="HTML",

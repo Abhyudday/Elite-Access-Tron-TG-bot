@@ -18,6 +18,7 @@ def main_menu_kb() -> InlineKeyboardMarkup:
         ],
         [
             InlineKeyboardButton(text="👛 Wallet", callback_data="menu:wallet"),
+            InlineKeyboardButton(text="🌐 Language", callback_data="menu:language"),
         ],
     ])
 

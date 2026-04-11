@@ -7,7 +7,7 @@ from aiogram import Router, F
 from aiogram.types import CallbackQuery
 
 from services.user_service import UserService
-from bot.keyboards import main_menu_kb, back_menu_kb, wallet_menu_kb
+from bot.keyboards import main_menu_kb, back_menu_kb, wallet_menu_kb, language_kb
 from bot.i18n import t
 
 logger = logging.getLogger(__name__)
@@ -44,6 +44,19 @@ async def cb_balance(callback: CallbackQuery) -> None:
         t(lang, "balance", balance=f"{balance:.4f}"),
         parse_mode="HTML",
         reply_markup=back_menu_kb(),
+    )
+    await callback.answer()
+
+
+@router.callback_query(F.data == "menu:language")
+async def cb_language_menu(callback: CallbackQuery) -> None:
+    """Show language selection for existing users."""
+    if not callback.from_user:
+        return
+    await callback.message.edit_text(
+        t("en", "choose_language"),
+        parse_mode="HTML",
+        reply_markup=language_kb(),
     )
     await callback.answer()
 
