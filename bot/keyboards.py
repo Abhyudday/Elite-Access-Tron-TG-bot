@@ -2,7 +2,7 @@
 Inline keyboard builders for the Telegram bot UI.
 """
 
-from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, ReplyKeyboardMarkup, KeyboardButton
 
 
 def main_menu_kb() -> InlineKeyboardMarkup:
@@ -78,23 +78,17 @@ def commission_kb(commission_id: int) -> InlineKeyboardMarkup:
 
 
 def admin_menu_kb() -> InlineKeyboardMarkup:
-    """Admin panel inline keyboard."""
-    return InlineKeyboardMarkup(inline_keyboard=[
-        [
-            InlineKeyboardButton(text="📊 Stats", callback_data="admin:stats"),
-            InlineKeyboardButton(text="👥 Users", callback_data="admin:users"),
-        ],
-        [
-            InlineKeyboardButton(text="📥 Deposits", callback_data="admin:deposits"),
-            InlineKeyboardButton(text="👥 Referrals", callback_data="admin:referrals"),
-        ],
-        [
-            InlineKeyboardButton(text="💸 Referral Commissions", callback_data="admin:pending"),
-        ],
-        [
-            InlineKeyboardButton(text="📅 Weekly Returns", callback_data="admin:weekly"),
-        ],
-    ])
+    """Admin panel inline keyboard with large full-width buttons."""
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [InlineKeyboardButton(text="📊 View Bot Statistics", callback_data="admin:stats")],
+            [InlineKeyboardButton(text="👥 View All Users", callback_data="admin:users")],
+            [InlineKeyboardButton(text="📥 View Deposit History", callback_data="admin:deposits")],
+            [InlineKeyboardButton(text="👥 View Referral List", callback_data="admin:referrals")],
+            [InlineKeyboardButton(text="💸 Pay Referral Commissions", callback_data="admin:pending")],
+            [InlineKeyboardButton(text="📅 Pay Weekly Returns", callback_data="admin:weekly")],
+        ]
+    )
 
 
 def commission_action_kb(commission_id: int) -> InlineKeyboardMarkup:
