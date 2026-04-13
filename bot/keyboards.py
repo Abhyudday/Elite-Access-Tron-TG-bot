@@ -94,6 +94,21 @@ def admin_menu_kb() -> InlineKeyboardMarkup:
         [
             InlineKeyboardButton(text="📅 Weekly Returns", callback_data="admin:weekly"),
         ],
+        [
+            InlineKeyboardButton(text="🗑 Reset Database", callback_data="admin:reset"),
+        ],
+    ])
+
+
+def reset_confirm_kb() -> InlineKeyboardMarkup:
+    """Confirmation keyboard for database reset."""
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [
+            InlineKeyboardButton(text="⚠️ Yes, wipe everything", callback_data="admin:reset_confirm"),
+        ],
+        [
+            InlineKeyboardButton(text="❌ Cancel", callback_data="admin:reset_cancel"),
+        ],
     ])
 
 

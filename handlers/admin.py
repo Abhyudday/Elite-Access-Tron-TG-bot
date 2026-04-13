@@ -14,7 +14,7 @@ from services.user_service import UserService
 from services.deposit_service import DepositService
 from services.referral_service import ReferralService
 from services.investment_service import InvestmentService
-from bot.keyboards import admin_menu_kb, commission_action_kb, commission_kb, back_menu_kb
+from bot.keyboards import admin_menu_kb, commission_action_kb, commission_kb, back_menu_kb, reset_confirm_kb
 
 logger = logging.getLogger(__name__)
 router = Router(name="admin")
@@ -282,4 +282,69 @@ async def cb_admin_weekly(callback: CallbackQuery) -> None:
         )
         await callback.message.answer(text, parse_mode="HTML")
 
+    await callback.answer()
+
+
+# ── Database reset ─────────────────────────────────────────────────
+
+@router.callback_query(F.data == "admin:reset")
+async def cb_admin_reset(callback: CallbackQuery) -> None:
+    """Show confirmation warning before wiping the database."""
+    if not callback.from_user or not _is_admin(callback.from_user.id):
+        await callback.answer("⛔ Unauthorized", show_alert=True)
+        return
+
+    await callback.message.edit_text(
+        "🚨 <b>DATABASE RESET</b>\n\n"
+        "⚠️ This will <b>permanently delete ALL data</b>:\n"
+        "• All users\n"
+        "• All deposits &amp; transactions\n"
+        "• All referrals &amp; commissions\n"
+        "• All weekly payouts\n\n"
+        "<b>This action cannot be undone.</b>\n\n"
+        "Are you sure you want to continue?",
+        parse_mode="HTML",
+        reply_markup=reset_confirm_kb(),
+    )
+    await callback.answer()
+
+
+@router.callback_query(F.data == "admin:reset_confirm")
+async def cb_admin_reset_confirm(callback: CallbackQuery) -> None:
+    """Actually wipe all tables after admin confirms."""
+    if not callback.from_user or not _is_admin(callback.from_user.id):
+        await callback.answer("⛔ Unauthorized", show_alert=True)
+        return
+
+    try:
+        await AdminService.reset_database()
+        await callback.message.edit_text(
+            "✅ <b>Database has been reset.</b>\n\n"
+            "All users, deposits, referrals, commissions, and payouts have been wiped.\n"
+            "The bot is now running fresh.",
+            parse_mode="HTML",
+            reply_markup=admin_menu_kb(),
+        )
+    except Exception as e:
+        logger.exception("Database reset failed: %s", e)
+        await callback.message.edit_text(
+            f"❌ <b>Reset failed:</b> <code>{e}</code>",
+            parse_mode="HTML",
+            reply_markup=admin_menu_kb(),
+        )
+    await callback.answer()
+
+
+@router.callback_query(F.data == "admin:reset_cancel")
+async def cb_admin_reset_cancel(callback: CallbackQuery) -> None:
+    """Cancel the reset and go back to admin panel."""
+    if not callback.from_user or not _is_admin(callback.from_user.id):
+        await callback.answer("⛔ Unauthorized", show_alert=True)
+        return
+
+    await callback.message.edit_text(
+        "🔐 <b>Admin Panel</b>\n\nDatabase reset cancelled.",
+        parse_mode="HTML",
+        reply_markup=admin_menu_kb(),
+    )
     await callback.answer()
