@@ -13,6 +13,7 @@ from services.admin_service import AdminService
 from services.user_service import UserService
 from services.deposit_service import DepositService
 from services.referral_service import ReferralService
+from services.investment_service import InvestmentService
 from bot.keyboards import admin_menu_kb, commission_action_kb, commission_kb, back_menu_kb
 
 logger = logging.getLogger(__name__)
@@ -232,3 +233,53 @@ async def cb_admin_pay_commission(callback: CallbackQuery) -> None:
         await callback.answer("✅ Marked as paid!", show_alert=False)
     else:
         await callback.answer("⚠️ Already paid or not found.", show_alert=True)
+
+
+# ── Weekly returns dashboard ─────────────────────────────────────────
+
+@router.callback_query(F.data == "admin:weekly")
+async def cb_admin_weekly(callback: CallbackQuery) -> None:
+    """Show investors eligible for weekly returns with amounts and wallets."""
+    if not callback.from_user or not _is_admin(callback.from_user.id):
+        await callback.answer("⛔ Unauthorized", show_alert=True)
+        return
+
+    investors = await InvestmentService.get_all_investors_weekly()
+
+    if not investors:
+        await callback.message.edit_text(
+            "📅 <b>Weekly Returns</b>\n\n"
+            "No investors with ≥ 500 USDT deposits yet.",
+            parse_mode="HTML",
+            reply_markup=admin_menu_kb(),
+        )
+        await callback.answer()
+        return
+
+    total_due = sum(i["weekly_amount"] for i in investors)
+    header = (
+        f"📅 <b>Weekly Returns</b> — {len(investors)} investor(s)\n"
+        f"Total to pay this week: <b>{total_due:.4f} USDT</b>\n\n"
+        "───────────────────────────"
+    )
+    await callback.message.edit_text(
+        header, parse_mode="HTML", reply_markup=admin_menu_kb()
+    )
+
+    for inv in investors:
+        uname = f"@{inv['username']}" if inv['username'] else f"ID {inv['telegram_id']}"
+        wallet = (
+            f"<code>{inv['payout_address']}</code>"
+            if inv['payout_address']
+            else "⚠️ <i>No payout wallet set</i>"
+        )
+        text = (
+            f"💰 <b>{uname}</b> (<code>{inv['telegram_id']}</code>)\n"
+            f"   Invested: <b>{inv['total_deposits']:.2f} USDT</b>\n"
+            f"   Tier: <b>{inv['weekly_pct']:.0f}%</b> / week\n"
+            f"   → Pay: <b>{inv['weekly_amount']:.4f} USDT</b>\n"
+            f"   👛 Wallet: {wallet}"
+        )
+        await callback.message.answer(text, parse_mode="HTML")
+
+    await callback.answer()

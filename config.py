@@ -25,8 +25,9 @@ class Config:
     TRON_MASTER_KEY: str = os.getenv("TRON_MASTER_KEY", "")
 
     # Referral
+    # Legacy flat rate – no longer used; tiered rates in InvestmentService
     REFERRAL_COMMISSION_PCT: float = float(os.getenv("REFERRAL_COMMISSION_PCT", "10"))
-    AUTO_CREDIT_REFERRAL: bool = os.getenv("AUTO_CREDIT_REFERRAL", "false").lower() == "true"
+    AUTO_CREDIT_REFERRAL: bool = os.getenv("AUTO_CREDIT_REFERRAL", "true").lower() == "true"
 
     # Worker
     DEPOSIT_CHECK_INTERVAL: int = int(os.getenv("DEPOSIT_CHECK_INTERVAL", "60"))

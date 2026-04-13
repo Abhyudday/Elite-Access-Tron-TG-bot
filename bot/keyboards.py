@@ -89,7 +89,10 @@ def admin_menu_kb() -> InlineKeyboardMarkup:
             InlineKeyboardButton(text="👥 Referrals", callback_data="admin:referrals"),
         ],
         [
-            InlineKeyboardButton(text="⏳ Pending Commissions", callback_data="admin:pending"),
+            InlineKeyboardButton(text="💸 Referral Commissions", callback_data="admin:pending"),
+        ],
+        [
+            InlineKeyboardButton(text="📅 Weekly Returns", callback_data="admin:weekly"),
         ],
     ])
 

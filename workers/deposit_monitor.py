@@ -101,7 +101,7 @@ class DepositMonitor:
         # 3. Credit balance
         new_balance = await UserService.update_balance(telegram_id, tx_info.amount)
 
-        # 4. Referral commission
+        # 4. Referral commission (tiered)
         user = await UserService.get_user(telegram_id)
         if user and user.referred_by:
             commission = await ReferralService.process_commission(
@@ -110,14 +110,47 @@ class DepositMonitor:
                 deposit_tx_hash=tx_info.tx_hash,
                 deposit_amount=tx_info.amount,
             )
-            if commission and Config.AUTO_CREDIT_REFERRAL:
+            if commission:
+                # Attempt on-chain auto-payout
+                referrer = await UserService.get_user(user.referred_by)
+                payout_tx = None
+                if referrer and referrer.payout_address:
+                    payout_tx = await self._provider.transfer_usdt(
+                        from_user_identifier=telegram_id,
+                        to_address=referrer.payout_address,
+                        amount=commission.amount,
+                    )
+                    if payout_tx:
+                        # Record the payout tx hash
+                        await ReferralService.set_payout_tx(commission.id, payout_tx)
+                        logger.info(
+                            "Auto-payout OK: commission=%s payout_tx=%s",
+                            commission.id, payout_tx,
+                        )
+                    else:
+                        logger.warning(
+                            "Auto-payout FAILED for commission %s — will need manual payout",
+                            commission.id,
+                        )
+                elif referrer and not referrer.payout_address:
+                    logger.warning(
+                        "Referrer %s has no payout_address — commission %s pending",
+                        user.referred_by, commission.id,
+                    )
+
                 # Notify referrer
                 try:
+                    payout_note = ""
+                    if payout_tx:
+                        payout_note = f"\n✅ Sent to your payout wallet!"
+                    elif referrer and not referrer.payout_address:
+                        payout_note = f"\n⚠️ Set your payout wallet to receive funds on-chain."
                     await self._bot.send_message(
                         user.referred_by,
-                        f"💸 Referral commission earned!\n"
-                        f"Amount: <b>{commission.amount:.4f} USDT</b>\n"
-                        f"From referral deposit by user.",
+                        f"💸 <b>Referral commission earned!</b>\n"
+                        f"Amount: <b>{commission.amount:.4f} USDT</b> ({commission.commission_pct:.1f}%)\n"
+                        f"From a deposit by your referral."
+                        f"{payout_note}",
                         parse_mode="HTML",
                     )
                 except Exception:

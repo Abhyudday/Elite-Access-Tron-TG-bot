@@ -4,7 +4,7 @@ SQLAlchemy ORM models for all database tables.
 
 import datetime
 from sqlalchemy import (
-    BigInteger, String, Float, DateTime, ForeignKey, Index
+    BigInteger, Integer, String, Float, DateTime, ForeignKey, Index
 )
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
@@ -103,7 +103,9 @@ class Commission(Base):
     referee_telegram_id: Mapped[int] = mapped_column(BigInteger, nullable=False)
     deposit_tx_hash: Mapped[str] = mapped_column(String(128), nullable=False)
     amount: Mapped[float] = mapped_column(Float, nullable=False)
+    commission_pct: Mapped[float] = mapped_column(Float, default=0.0, nullable=False)
     status: Mapped[str] = mapped_column(String(20), default="pending", nullable=False)  # pending | paid
+    payout_tx_hash: Mapped[str | None] = mapped_column(String(128), nullable=True)
     created_at: Mapped[datetime.datetime] = mapped_column(
         DateTime(timezone=True), default=datetime.datetime.utcnow, nullable=False
     )
@@ -111,3 +113,27 @@ class Commission(Base):
 
     def __repr__(self) -> str:
         return f"<Commission {self.referrer_telegram_id} ${self.amount} [{self.status}]>"
+
+
+class WeeklyPayout(Base):
+    """Tracks weekly return payouts (manual, Saturday)."""
+    __tablename__ = "weekly_payouts"
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    user_telegram_id: Mapped[int] = mapped_column(BigInteger, nullable=False, index=True)
+    week_label: Mapped[str] = mapped_column(String(10), nullable=False)  # e.g. '2026-W15'
+    total_deposits: Mapped[float] = mapped_column(Float, nullable=False)
+    return_pct: Mapped[float] = mapped_column(Float, nullable=False)
+    amount: Mapped[float] = mapped_column(Float, nullable=False)
+    status: Mapped[str] = mapped_column(String(20), default="pending", nullable=False)
+    created_at: Mapped[datetime.datetime] = mapped_column(
+        DateTime(timezone=True), default=datetime.datetime.utcnow, nullable=False
+    )
+    paid_at: Mapped[datetime.datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    __table_args__ = (
+        Index("ix_weekly_user_week", "user_telegram_id", "week_label", unique=True),
+    )
+
+    def __repr__(self) -> str:
+        return f"<WeeklyPayout user={self.user_telegram_id} week={self.week_label} {self.amount}>"

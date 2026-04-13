@@ -11,6 +11,7 @@ Deposit detection: TronGrid v1 TRC20 transfer API.
 USDT TRC20 contract on mainnet: TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t
 """
 
+import asyncio
 import hashlib
 import hmac
 import logging
@@ -111,3 +112,52 @@ class TronGridProvider(BlockchainProvider):
         except Exception as e:
             logger.exception("Error fetching USDT balance for %s: %s", address, e)
             return 0.0
+
+    async def transfer_usdt(
+        self, from_user_identifier: int, to_address: str, amount: float,
+    ) -> str | None:
+        """
+        Send USDT from a user's deposit wallet to `to_address`.
+        Uses tronpy (sync) in an executor to build, sign, and broadcast
+        the TRC20 transfer.
+        NOTE: The source wallet must hold enough TRX for energy fees.
+        """
+        priv_key = self._derive_private_key(from_user_identifier)
+        from_addr = priv_key.public_key.to_base58check_address()
+        raw_amount = int(amount * 1_000_000)
+        api_key = self._api_key
+
+        def _do_transfer() -> str | None:
+            from tronpy import Tron
+            from tronpy.providers import HTTPProvider
+
+            provider = HTTPProvider(api_key=api_key)
+            client = Tron(provider=provider)
+            contract = client.get_contract(USDT_CONTRACT)
+
+            txn = (
+                contract.functions.transfer(to_address, raw_amount)
+                .with_owner(from_addr)
+                .fee_limit(30_000_000)       # 30 TRX max fee
+                .build()
+                .sign(priv_key)
+            )
+            result = txn.broadcast()
+            tx_id = result.get("txid") or result.get("transaction", {}).get("txID")
+            return tx_id
+
+        try:
+            loop = asyncio.get_running_loop()
+            tx_hash = await loop.run_in_executor(None, _do_transfer)
+            if tx_hash:
+                logger.info(
+                    "USDT transfer OK: %s → %s  %.4f USDT  tx=%s",
+                    from_addr, to_address, amount, tx_hash,
+                )
+            return tx_hash
+        except Exception as e:
+            logger.error(
+                "USDT transfer FAILED: user=%s → %s  %.4f USDT  error=%s",
+                from_user_identifier, to_address, amount, e,
+            )
+            return None

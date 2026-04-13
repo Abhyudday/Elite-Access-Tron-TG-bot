@@ -35,16 +35,19 @@ async def init_db() -> None:
     # Migrate: add new columns to existing tables if they don't exist
     async with _engine.begin() as conn:
         from sqlalchemy import text
-        for col, col_def in [
-            ("payout_address", "VARCHAR(64)"),
-            ("language", "VARCHAR(2) DEFAULT 'en' NOT NULL"),
-        ]:
+        migrations = [
+            ("users", "payout_address", "VARCHAR(64)"),
+            ("users", "language", "VARCHAR(2) DEFAULT 'en' NOT NULL"),
+            ("commissions", "commission_pct", "DOUBLE PRECISION DEFAULT 0 NOT NULL"),
+            ("commissions", "payout_tx_hash", "VARCHAR(128)"),
+        ]
+        for table, col, col_def in migrations:
             try:
                 await conn.execute(text(
-                    f"ALTER TABLE users ADD COLUMN IF NOT EXISTS {col} {col_def}"
+                    f"ALTER TABLE {table} ADD COLUMN IF NOT EXISTS {col} {col_def}"
                 ))
             except Exception:
-                pass  # Column already exists or DB doesn't support IF NOT EXISTS
+                pass
 
     logger.info("Database initialised")
 

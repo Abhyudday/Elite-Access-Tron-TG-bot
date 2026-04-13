@@ -39,3 +39,13 @@ class BlockchainProvider(ABC):
     async def get_usdt_balance(self, address: str) -> float:
         """Return the current USDT balance of an address."""
         ...
+
+    async def transfer_usdt(
+        self, from_user_identifier: int, to_address: str, amount: float,
+    ) -> str | None:
+        """
+        Transfer USDT from a user's derived deposit wallet to `to_address`.
+        Returns the tx_hash on success, or None on failure.
+        Override in providers that support on-chain transfers.
+        """
+        return None  # default: not supported

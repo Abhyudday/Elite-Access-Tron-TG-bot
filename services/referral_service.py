@@ -8,6 +8,7 @@ from sqlalchemy import select, func
 from db.connection import get_session
 from db.models import Referral, Commission, User
 from config import Config
+from services.investment_service import InvestmentService
 
 logger = logging.getLogger(__name__)
 
@@ -40,11 +41,24 @@ class ReferralService:
         deposit_amount: float,
     ) -> Commission | None:
         """
-        Calculate and store (or auto-credit) a referral commission.
-        Returns the Commission record, or None if no referrer.
+        Calculate and store a referral commission using tiered rates.
+
+        Base rate   – from referrer's own total deposits.
+        Bonus rate  – from referrer's referral count.
+        Total       = base + bonus.
+
+        If AUTO_CREDIT_REFERRAL is true, the referrer's balance is
+        credited immediately and the commission is marked 'paid'.
         """
-        pct = Config.REFERRAL_COMMISSION_PCT
-        commission_amount = round(deposit_amount * pct / 100, 4)
+        # ── Compute tiered rate ───────────────────────────────────────
+        referrer_deposits = await InvestmentService.get_total_deposits(referrer_id)
+        ref_count = await ReferralService.get_referral_count(referrer_id)
+
+        base_pct = InvestmentService.get_base_commission_pct(referrer_deposits)
+        bonus_pct = InvestmentService.get_bonus_commission_pct(ref_count)
+        total_pct = base_pct + bonus_pct
+
+        commission_amount = round(deposit_amount * total_pct / 100, 4)
         if commission_amount <= 0:
             return None
 
@@ -56,6 +70,7 @@ class ReferralService:
                 referee_telegram_id=referee_id,
                 deposit_tx_hash=deposit_tx_hash,
                 amount=commission_amount,
+                commission_pct=total_pct,
                 status=status,
                 paid_at=datetime.datetime.utcnow() if status == "paid" else None,
             )
@@ -72,8 +87,9 @@ class ReferralService:
 
             await session.commit()
             logger.info(
-                "Commission %s for referrer %s: $%.4f (%s)",
-                commission.id, referrer_id, commission_amount, status,
+                "Commission %s for referrer %s: $%.4f @ %.1f%% (base=%.1f + bonus=%.1f) [%s]",
+                commission.id, referrer_id, commission_amount,
+                total_pct, base_pct, bonus_pct, status,
             )
             return commission
 
@@ -126,6 +142,18 @@ class ReferralService:
                 .limit(limit)
             )
             return [(row[0], row[1], row[2]) for row in result.all()]
+
+    @staticmethod
+    async def set_payout_tx(commission_id: int, tx_hash: str) -> None:
+        """Store the on-chain payout tx hash on a commission."""
+        async with get_session() as session:
+            result = await session.execute(
+                select(Commission).where(Commission.id == commission_id)
+            )
+            commission = result.scalar_one_or_none()
+            if commission:
+                commission.payout_tx_hash = tx_hash
+                await session.commit()
 
     @staticmethod
     async def mark_commission_paid(commission_id: int) -> bool:
